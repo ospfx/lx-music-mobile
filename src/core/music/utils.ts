@@ -36,7 +36,7 @@ const downloadMusicWithLrc = async({ url, fileName, musicInfo }: { url: string, 
     onToggleSource: () => {},
     allowToggleSource: true,
     isRefresh: false,
-  }).then(({ lyricInfo }) => {
+  }).then(async({ lyricInfo }) => {
     if (!lyricInfo.lyric) throw new Error('lyric is empty')
     return writeFile(lyricPath, lyricInfo.lyric, 'utf8')
   }).catch(() => {})
@@ -355,16 +355,16 @@ export const handleGetOnlineMusicUrl = async({ musicInfo, quality, onToggleSourc
   })
 }
 
-export const downloadMusic = (musicInfo: LX.Music.MusicInfoOnline) => {
+export const downloadMusic = async(musicInfo: LX.Music.MusicInfoOnline) => {
   const fileName = formatMusicName(settingState.setting['download.fileName'], musicInfo.name, musicInfo.singer)
   toast(global.i18n.t('download_music_start'))
-  handleGetOnlineMusicUrl({
+  await handleGetOnlineMusicUrl({
     musicInfo,
     isRefresh: false,
     allowToggleSource: true,
     onToggleSource: () => {},
-  }).then(res => {
-    return downloadMusicWithLrc({
+  }).then(async(res) => {
+    await downloadMusicWithLrc({
       url: res.url,
       fileName,
       musicInfo,
@@ -490,7 +490,7 @@ export const getOnlineOtherSourceLyricInfo = async({ musicInfos, onToggleSource,
   let reqPromise
   try {
     // TODO: remove any type
-    reqPromise = (musicSdk[musicInfo.source].getLyric(toOldMusicInfo(musicInfo)) as any).promise
+    reqPromise = musicSdk[musicInfo.source].getLyric(toOldMusicInfo(musicInfo)).promise
   } catch (err: any) {
     reqPromise = Promise.reject(err)
   }
@@ -525,7 +525,7 @@ export const handleGetOnlineLyricInfo = async({ musicInfo, onToggleSource, isRef
   let reqPromise
   try {
     // TODO: remove any type
-    reqPromise = (musicSdk[musicInfo.source].getLyric(toOldMusicInfo(musicInfo)) as any).promise
+    reqPromise = musicSdk[musicInfo.source].getLyric(toOldMusicInfo(musicInfo)).promise
   } catch (err) {
     reqPromise = Promise.reject(err)
   }

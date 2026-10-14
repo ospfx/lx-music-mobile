@@ -34,7 +34,7 @@ export const handleShare = (musicInfo: LX.Music.MusicInfoOnline) => {
 }
 
 export const handleDownloadMusic = (musicInfo: LX.Music.MusicInfoOnline) => {
-  downloadMusic(musicInfo)
+  void downloadMusic(musicInfo)
 }
 
 export const handleShowMusicSourceDetail = async(minfo: LX.Music.MusicInfoOnline) => {
