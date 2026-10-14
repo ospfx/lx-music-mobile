@@ -6,7 +6,8 @@ import {
   getPlayerLyric as getStoreLyric,
 } from '@/utils/data'
 import { langS2T, toNewMusicInfo, toOldMusicInfo } from '@/utils'
-import { assertApiSupport } from '@/utils/tools'
+import { downloadFile, externalStorageDirectoryPath, mkdir, writeFile } from '@/utils/fs'
+import { assertApiSupport, formatMusicName, toast } from '@/utils/tools'
 import settingState from '@/store/setting/state'
 import { requestMsg } from '@/utils/message'
 import BackgroundTimer from 'react-native-background-timer'
@@ -16,6 +17,32 @@ import { apis } from '@/utils/musicSdk/api-source'
 const getOtherSourcePromises = new Map()
 export const existTimeExp = /\[\d{1,2}:.*\d{1,4}\]/
 const otherSourceCache = new Map<LX.Music.MusicInfo | LX.Download.ListItem, LX.Music.MusicInfoOnline[]>()
+const onlineMusicDownloadDir = `${externalStorageDirectoryPath}/Download/lx.music`
+
+const getFileExtension = (url: string) => {
+  const match = url.match(/\.([0-9a-z]+)(?=[?#]|$)/i)
+  return match ? match[1] : 'mp3'
+}
+const filterFileName = (name: string) => name.replace(/[\\/:*?"<>|]/g, '_')
+const downloadMusicWithLrc = async({ url, fileName, musicInfo }: { url: string, fileName: string, musicInfo: LX.Music.MusicInfoOnline }) => {
+  const safeFileName = filterFileName(fileName)
+  const extension = getFileExtension(url)
+  await mkdir(onlineMusicDownloadDir).catch(() => {})
+
+  const musicPath = `${onlineMusicDownloadDir}/${safeFileName}.${extension}`
+  const lyricPath = `${onlineMusicDownloadDir}/${safeFileName}.lrc`
+  const lyricTask = handleGetOnlineLyricInfo({
+    musicInfo,
+    onToggleSource: () => {},
+    allowToggleSource: true,
+    isRefresh: false,
+  }).then(({ lyricInfo }) => {
+    if (!lyricInfo.lyric) throw new Error('lyric is empty')
+    return writeFile(lyricPath, lyricInfo.lyric, 'utf8')
+  }).catch(() => {})
+  const { promise } = downloadFile(url, musicPath)
+  await Promise.all([promise, lyricTask])
+}
 
 export const getOtherSource = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListItem, isRefresh = false): Promise<LX.Music.MusicInfoOnline[]> => {
   // if (!isRefresh) {
@@ -325,6 +352,27 @@ export const handleGetOnlineMusicUrl = async({ musicInfo, quality, onToggleSourc
       }
       throw err
     })
+  })
+}
+
+export const downloadMusic = (musicInfo: LX.Music.MusicInfoOnline) => {
+  const fileName = formatMusicName(settingState.setting['download.fileName'], musicInfo.name, musicInfo.singer)
+  toast(global.i18n.t('download_music_start'))
+  handleGetOnlineMusicUrl({
+    musicInfo,
+    isRefresh: false,
+    allowToggleSource: true,
+    onToggleSource: () => {},
+  }).then(res => {
+    return downloadMusicWithLrc({
+      url: res.url,
+      fileName,
+      musicInfo,
+    })
+  }).then(() => {
+    toast(global.i18n.t('download_music_success'))
+  }).catch(() => {
+    toast(global.i18n.t('download_music_fail'))
   })
 }
 
